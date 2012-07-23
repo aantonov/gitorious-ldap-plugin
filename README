@@ -1,13 +1,24 @@
 GitoriousLdap
 =============
+To install it (from your Gitorious root):
+bundle exec ./script/plugin install git://github.com/gapcoder/gitorious-ldap-plugin.git
 
-Introduction goes here.
+This plugins integrates LDAP authentification server with your Gitorious models.
+It can (whe it will be realised):
+ - scan users from the ldap
+ - scan groups from the ldap
+ - attach users to the groups
+ - attach existing projects with ldap access settings to the Gitorious
 
+All plugin work is in rake tasks under space 'ldap'
+bundle exec rake -T | grep ldap - will show you available tasks
 
 Example
 =======
+In your gitorious root :
 
-Example goes here.
+bundle exec rake ldap:sync_users
 
 
-Copyright (c) 2012 [name of plugin creator], released under the MIT license
+
+Copyright (c) 2012, released under the MIT license
