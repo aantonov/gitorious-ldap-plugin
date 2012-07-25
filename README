@@ -20,5 +20,4 @@ In your gitorious root :
 bundle exec rake ldap:sync_users
 
 
-
 Copyright (c) 2012, released under the MIT license
