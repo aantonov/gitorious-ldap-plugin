@@ -1,12 +1,8 @@
+$LOAD_PATH << "."
 require 'rake'
 require 'rake/testtask'
 require 'rake/rdoctask'
 
-
-desc 'Integrate Gitorious users with the LDAP server'
-task :ldap_users => :environment do
-  puts "Hello ldap"
-end
 
 desc 'Default: run unit tests.'
 task :default => :test

@@ -18,10 +18,17 @@ require 'ldap'
 #
 
 def get_users(host, base='dc=griddynamics,dc=net', scope=LDAP::LDAP_SCOPE_SUBTREE, filter='(objectclass=person)')
+
+  puts "Getting users from #{host} with base #{base} with filter #{filter}"
+
   attrs = ['uid', 'mail', 'sn', 'givenName' ,'cn', 'sshPublicKey']
 
   conn = LDAP::Conn.new(host)
+
+  puts "Connection received: #{conn.inspect}"
+
   conn.set_option(LDAP::LDAP_OPT_PROTOCOL_VERSION, 3)
+
   puts conn.bind('','')
 
   conn.perror("bind")

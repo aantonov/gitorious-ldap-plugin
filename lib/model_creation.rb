@@ -1,6 +1,13 @@
+if RUBY_VERSION < '1.9'
+  require "rubygems"
+end
+
 require 'common'
+require 'logger'
+
 
 # Gitorious rails environment should be available
+
 
 module GitoriousLdap
 
@@ -8,39 +15,53 @@ module GitoriousLdap
   end
 
   class ModelActions
+    @log = Logger.new($stdout)
 
+    def self.log
+      @log
+    end
+
+    # Creating a grouip of tasks
     def self.create_group(name, user_list = [], force = true)
+
+      default_admin = User.find_by_login("Gitorious")
+
       g = Group.find_by_name(name)
 
       if force.eql?(true) && !g.nil?
-        puts "Group '#{name}' will be forced!"
+        log.info("Group '#{name}' will be deleted.")
         g.destroy
         g = nil
       end
 
+      gname = name.gsub('_', '-')
+      log.info("Formatting group name from #{name} to #{gname}")
+
       if g.nil?
-        puts " Group #{name} does not exists, creating a new group '#{name}'"
-        g_hash = {"description" => "Ldap group #{name}", "name" => "#{name}"}
+
+        log.info(" Group #{gname} does not exists, creating a new group '#{gname}'")
+        g_hash = {"description" => "Ldap group #{gname}", "name" => "#{gname}"}
+
         g = Group.new(g_hash)
+
         if !user_list.empty?
           g.transaction do
-            g.creator = User.find_by_login(user_list[0])
+            g.creator = default_admin
             g.save!
 
             user_list.each do |login|
               user = User.find_by_login(login)
               if !user.nil?
-                g.memberships.create!({
-                                          :user => user,
-                                          :role => login.eql?(user_list.first) ? Role.admin : Role.member
-                                      })
-                puts "Group #{name} has included member #{login}"
+                g.memberships.create!(:user => user, :role => Role.member)
+                log.info("#{gname} <~ #{login}")
               end
             end
+
+            g.memberships.create!(:user => default_admin, :role => Role.admin)
           end
         end
 
-        puts "Group #{name} has been created successfully"
+        log.info("Group #{gname} has been created successfully")
       end
 
 
@@ -55,11 +76,12 @@ module GitoriousLdap
     #     :login =>"gitorious",
     #     :email =>"gitorious@griddynamics.com",
     #     :password =>"gitorious",
+    #     :ssh_public_key => "shh-rsa AAABB...."
     # }
     # @return [User] user model object from the gitorious
     # @param [Boolean] force - override existing user if true
     def self.create_user(param, force = false)
-      # check
+      # check with the completion
       raise "Incomplete param hash whe creating user: :login required" if param[:login].nil?
       raise "Incomplete param hash whe creating user: :email required" if param[:email].nil?
       raise "Incomplete param hash whe creating user: :password required" if param[:password].nil?
@@ -69,15 +91,20 @@ module GitoriousLdap
 
       if  !user_old.nil?
         if force.eql?(true)
-          puts "User '#{param[:login]}' already exists, force is true, overriding user."
+
+          log.info ("User '#{param[:login]}' already exists, force is true, overriding user.")
           User.delete(user_old.id)
+
         else
-          puts "User '#{param[:login]}' already exists, force is false, returning user as is"
+
+          log.info ("User '#{param[:login]}' already exists, force is false, returning user as is")
           return user_old
+
         end
       end
 
-      puts "Creating user '#{param[:login]}'"
+      log.info("Creating user '#{param[:login]}'")
+
       user_hash = {# hash to pass to user constructor
                    "login" => param[:login],
                    "email" => param[:email],
@@ -85,38 +112,55 @@ module GitoriousLdap
                    "password" => param[:login],
                    "password_confirmation" => param[:login]
       }
-      user = User.new(user_hash)
 
+      user = User.new(user_hash)
       user.email = param[:email]
       user.login = param[:login]
       user.password = param[:login]
       user.password_confirmation = param[:login]
       user.fullname = param[:full_name] unless param[:full_name].nil?
 
-      if user.login == "vvlaskin"
+      if user.login.eql?("vvlaskin")
         user.is_admin=true
       end
 
       user.save!
-      user.accept_terms!
-      user.activate
+      log.info("Saving user")
 
-      puts "User '#{user.login}' created with id: #{user.id}"
+      user.accept_terms!
+      log.info("User #{param[:login]} terms accepted ")
+
+      user.activate
+      log.info("User #{param[:login]} activated ")
+
+      log.info ("User '#{user.login}' created with id: #{user.id}")
 
       unless param[:ssh_public_key].nil?
-        puts "Creating ssh-public key"
+
+        log.info("Creating ssh-public key for user #{user.login}")
+
         @ssh_key = user.ssh_keys.new
-        @ssh_key.key = param[:ssh_public_key]
-        if @ssh_key.save
-          @ssh_key.publish_creation_message if RAILS_ENV.eql?("production")
-          puts "Ssh key added successfully"
+        @ssh_key.key = param[:ssh_public_key].strip
+
+        log.info("saving key: #{param[:ssh_public_key].to_s}")
+
+        if @ssh_key.save!
+
+          log.info("Key saving OK, publishing message")
+
+          @ssh_key.publish_creation_message
+
+          log.info ("OK: Ssh key added")
+
+          user.save!
         else
-          puts "Unable to save ssh-key!"
+
+          log.info("ERROR: Unable to save ssh-key, it is possible that such key already exists, look in ~/.ssh/authorized_keys ")
         end
+
       end
 
       user
-
     end
 
 
